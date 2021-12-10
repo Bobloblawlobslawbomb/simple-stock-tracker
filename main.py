@@ -18,12 +18,18 @@ phone_to = os.environ.get('PHONE_TO')
 
 STOCK = "TSLA"
 COMPANY_NAME = "Tesla Inc"
-PERCENTAGE_THRESHOLD = 5
+PERCENTAGE_THRESHOLD = 1
 
-url = F'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={STOCK}&apikey={stock_api_key}'
-news_url = "https://newsapi.org/v2/everything"
+URL = "https://www.alphavantage.co/query"
+NEWS_URL = "https://newsapi.org/v2/everything"
 
-r = requests.get(url)
+stock_params = {
+    'function': "TIME_SERIES_DAILY",
+    'symbol': STOCK,
+    'apikey': stock_api_key
+}
+
+r = requests.get(URL, params=stock_params)
 r.raise_for_status()
 data = r.json()
 
@@ -32,7 +38,7 @@ yesterday = str(date.today() - timedelta(days=1))
 day_before_yesterday = str(date.today() - timedelta(days=2))
 
 news_params = {
-    'q': "Tesla",
+    'q': COMPANY_NAME,
     'from': today,
     'sortBy': "popularity",
     'apiKey': news_api_key
@@ -53,36 +59,20 @@ else:
     percent_diff = percent_diff * -1
 
 if percent_diff >= PERCENTAGE_THRESHOLD:
-    response = requests.get(news_url, params=news_params)
+    response = requests.get(NEWS_URL, params=news_params)
     response.raise_for_status()
     news_data_all = response.json()["articles"]
 
-    news_data_one_title = news_data_all[0]["title"]
-    news_data_one_desc = news_data_all[0]["description"]
+    three_articles = news_data_all[:3]
 
-    news_data_two_title = news_data_all[1]["title"]
-    news_data_two_desc = news_data_all[1]["description"]
-
-    news_data_three_title = news_data_all[2]["title"]
-    news_data_three_desc = news_data_all[2]["description"]
+    formatted_articles = [
+        f"{STOCK}: {percent_diff_str}%\nHeadline {article['title']}.\nBrief : {article['description']}" for article in three_articles]
 
     client = Client(account_sid, auth_token)
 
-    message_one = client.messages \
-        .create(
-            body=f"\n{STOCK}: {percent_diff_str}%\nHeadline: {news_data_one_title}\nBrief: {news_data_one_desc}",
-            from_=phone_from,
-            to=phone_to
-        )
-    message_two = client.messages \
-        .create(
-            body=f"\n{STOCK}: {percent_diff_str}%\nHeadline: {news_data_two_title}\nBrief: {news_data_two_desc}",
-            from_=phone_from,
-            to=phone_to
-        )
-    message_three = client.messages \
-        .create(
-            body=f"\n{STOCK}: {percent_diff_str}%\nHeadline: {news_data_three_title}\nBrief: {news_data_three_desc}",
+    for article in formatted_articles:
+        message = client.messages.create(
+            body=article,
             from_=phone_from,
             to=phone_to
         )
